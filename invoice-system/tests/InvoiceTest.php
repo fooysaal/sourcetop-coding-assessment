@@ -14,7 +14,8 @@ require_once __DIR__ . '/../src/Invoice.php';
 require_once __DIR__ . '/../src/InvoiceCalculator.php';
 require_once __DIR__ . '/../src/PDFGenerator.php';
 
-class InvoiceTest {
+class InvoiceTest
+{
 
     private $testsPassed = 0;
     private $testsFailed = 0;
@@ -23,7 +24,8 @@ class InvoiceTest {
     /**
      * Run all tests
      */
-    public function runAll() {
+    public function runAll()
+    {
         echo "Running Invoice Tests...\n";
         echo str_repeat("=", 50) . "\n\n";
 
@@ -51,7 +53,8 @@ class InvoiceTest {
      * Test: Create basic invoice
      * Status: PASSING ✓
      */
-    private function test_create_invoice() {
+    private function test_create_invoice()
+    {
         $invoice = new Invoice("Test Customer");
 
         $this->assert(
@@ -68,7 +71,8 @@ class InvoiceTest {
      * This test fails because of the qty/quantity mismatch bug
      * The total comes back as 0 instead of expected value
      */
-    private function test_calculate_total() {
+    private function test_calculate_total()
+    {
         $invoice = new Invoice("Test Customer");
         $invoice->addItem("Test Item", 10.00, 2);
 
@@ -88,7 +92,8 @@ class InvoiceTest {
      *
      * Also fails due to the same qty/quantity bug
      */
-    private function test_add_multiple_items() {
+    private function test_add_multiple_items()
+    {
         $invoice = new Invoice("Test Customer");
         $invoice->addItem("Item 1", 10.00, 2);
         $invoice->addItem("Item 2", 15.00, 3);
@@ -111,7 +116,8 @@ class InvoiceTest {
      * Fails because saveToFile() overwrites the entire file
      * When loading, it can't find the invoice because structure is wrong
      */
-    private function test_save_and_load() {
+    private function test_save_and_load()
+    {
         $testFile = __DIR__ . '/../data/test_invoices.json';
 
         // Clean up first
@@ -156,27 +162,31 @@ class InvoiceTest {
      * Test: Tax calculation
      * Status: PASSING ✓
      *
-     * This works because the hardcoded tax rate is consistent
-     * (Even though it should load from JSON instead)
+     * Now correctly loads tax rate from JSON file
+     * US-CA rate is 7.25% according to tax_rates.json
      */
-    private function test_tax_calculation() {
+    private function test_tax_calculation()
+    {
         $subtotal = 100.00;
         $tax = InvoiceCalculator::calculateTax($subtotal, 'US-CA');
 
-        // Hardcoded to 10% currently
-        $expected = 10.00;
+        // US-CA rate is 7.25% according to tax_rates.json
+        $expected = 7.25;
 
+        // Use epsilon comparison for floating point values
+        $epsilon = 0.0001;
         $this->assert(
-            $tax === $expected,
+            abs($tax - $expected) < $epsilon,
             "test_tax_calculation",
-            "Tax should be $10.00, got $" . number_format($tax, 2)
+            "Tax should be $7.25, got $" . number_format($tax, 2)
         );
     }
 
     /**
      * Simple assertion helper
      */
-    private function assert($condition, $testName, $message) {
+    private function assert($condition, $testName, $message)
+    {
         if ($condition) {
             $this->testsPassed++;
             echo "✓ " . $testName . "\n";
