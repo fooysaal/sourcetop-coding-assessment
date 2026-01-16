@@ -1,0 +1,14 @@
+{
+  "name": "sourcetop/invoice-system",
+  "description": "Invoice management system with PDF generation",
+  "type": "project",
+  "require": {
+    "php": ">=7.4",
+    "dompdf/dompdf": "^2.0"
+  },
+  "autoload": {
+    "classmap": [
+      "src/"
+    ]
+  }
+}
