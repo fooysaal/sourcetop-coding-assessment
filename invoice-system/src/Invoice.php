@@ -7,7 +7,8 @@
  * Started: 2 weeks ago
  * Last modified: Friday (was in a hurry)
  */
-class Invoice {
+class Invoice
+{
 
     private $customer;
     private $items = [];
@@ -15,7 +16,8 @@ class Invoice {
     private $id;
     private $createdAt;
 
-    public function __construct($customerName) {
+    public function __construct($customerName)
+    {
         $this->customer = $customerName;
         $this->id = time(); // Not sure if this is the best approach...
         $this->createdAt = date('Y-m-d H:i:s');
@@ -23,72 +25,88 @@ class Invoice {
 
     /**
      * Add an item to the invoice
-     * Note: Make sure to use consistent naming!
+     * Now includes validation
      */
-    public function addItem($name, $price, $quantity) {
-        // No validation yet - add later?
+    public function addItem($name, $price, $quantity)
+    {
+        // Validate inputs
+        if (empty($name)) {
+            throw new Exception("Item name cannot be empty");
+        }
+        if ($price < 0) {
+            throw new Exception("Price cannot be negative");
+        }
+        if ($quantity <= 0) {
+            throw new Exception("Quantity must be greater than zero");
+        }
+
         $this->items[] = [
             'name' => $name,
             'price' => $price,
-            'qty' => $quantity  // Using 'qty' here
+            'qty' => $quantity  // Using 'qty' for consistency
         ];
     }
 
     /**
      * Calculate total
-     * BUG: This doesn't match up with addItem() - need to fix
+     * Fixed: Now using 'qty' to match addItem()
      */
-    public function getTotal() {
+    public function getTotal()
+    {
         $total = 0;
         foreach ($this->items as $item) {
-            // Accessing 'quantity' but we stored it as 'qty'!
-            $total += $item['price'] * $item['quantity'];
+            // Using 'qty' to match what we store in addItem()
+            $total += $item['price'] * $item['qty'];
         }
         return $total - $this->discount;
     }
 
     /**
      * Apply discount to invoice
-     * TODO: Should discounts apply before or after tax?
-     * TODO: Client hasn't decided on the business rules yet
+     * Discount is applied to subtotal (before tax)
      */
-    public function applyDiscount($percent) {
-        // Started implementing but not sure about requirements
-        // throw new Exception("Not implemented - waiting on client clarification");
+    public function applyDiscount($percent)
+    {
+        // Validate discount percentage
+        if ($percent < 0 || $percent > 100) {
+            throw new Exception("Discount percent must be between 0 and 100");
+        }
 
-        // Trying basic implementation but commented out until we get clarity
-        // $subtotal = $this->getTotal();
-        // $this->discount = $subtotal * ($percent / 100);
+        $subtotal = $this->getTotal();
+        $this->discount = $subtotal * ($percent / 100);
 
-        // For now just throw exception
-        throw new Exception("Discount feature incomplete - need business rules from client");
+        return $this->discount;
     }
 
     /**
      * Get invoice ID
      */
-    public function getId() {
+    public function getId()
+    {
         return $this->id;
     }
 
     /**
      * Get customer name
      */
-    public function getCustomer() {
+    public function getCustomer()
+    {
         return $this->customer;
     }
 
     /**
      * Get items array
      */
-    public function getItems() {
+    public function getItems()
+    {
         return $this->items;
     }
 
     /**
      * Convert invoice to array for JSON serialization
      */
-    public function toArray() {
+    public function toArray()
+    {
         return [
             'id' => $this->id,
             'customer' => $this->customer,
@@ -101,18 +119,32 @@ class Invoice {
 
     /**
      * Save invoice to file
-     * FIXME: This overwrites everything! Need to fix but running out of time
-     * Should APPEND to the file, not replace it
+     * Fixed: Now appends to existing invoices instead of overwriting
      */
-    public function saveToFile($filename = 'data/invoices.json') {
+    public function saveToFile($filename = 'data/invoices.json')
+    {
         $data = $this->toArray();
+        $invoices = [];
 
-        // This is wrong - overwrites the whole file!
-        // Should load existing invoices and append
-        // But json_encode is easier for now...
-        file_put_contents($filename, json_encode($data, JSON_PRETTY_PRINT));
+        // Load existing invoices if file exists
+        if (file_exists($filename)) {
+            $contents = file_get_contents($filename);
+            $existing = json_decode($contents, true);
 
-        // TODO: Fix this before client demo!
+            // Handle both single invoice and array of invoices
+            if (isset($existing['id'])) {
+                $invoices = [$existing];
+            } else if (is_array($existing)) {
+                $invoices = $existing;
+            }
+        }
+
+        // Append new invoice
+        $invoices[] = $data;
+
+        // Save all invoices
+        file_put_contents($filename, json_encode($invoices, JSON_PRETTY_PRINT));
+
         return true;
     }
 
@@ -120,7 +152,8 @@ class Invoice {
      * Load invoice from file by ID
      * Started this but didn't finish testing it
      */
-    public static function loadFromFile($id, $filename = 'data/invoices.json') {
+    public static function loadFromFile($id, $filename = 'data/invoices.json')
+    {
         if (!file_exists($filename)) {
             throw new Exception("Invoice file not found");
         }

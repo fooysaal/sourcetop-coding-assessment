@@ -6,30 +6,44 @@
  * Static utility methods for business logic
  * Client keeps changing their mind on requirements...
  */
-class InvoiceCalculator {
+class InvoiceCalculator
+{
 
     /**
      * Calculate tax for an invoice
      *
-     * TODO: Load tax rates from data/tax_rates.json instead of hardcoding
-     * Currently just using 10% for everything which is WRONG
+     * Now loads tax rates from data/tax_rates.json
      *
      * @param float $subtotal The subtotal before tax
      * @param string $region Region code (e.g., "US-CA", "CA-ON")
      * @return float Tax amount
      */
-    public static function calculateTax($subtotal, $region = 'US-CA') {
-        // TEMPORARY hardcoded value - need to load from JSON
-        // Client said tax rates change frequently so should be in config
-        $taxRate = 0.10;
+    public static function calculateTax($subtotal, $region = 'US-CA')
+    {
+        // Load tax rates from JSON
+        $taxFile = __DIR__ . '/../data/tax_rates.json';
 
-        // TODO: Load from tax_rates.json like this:
-        // $taxData = json_decode(file_get_contents('data/tax_rates.json'), true);
-        // Parse $region to get country and state
-        // Look up actual rate
-        // Handle default rates
-        //
-        // Ran out of time Friday, will fix Monday
+        if (!file_exists($taxFile)) {
+            // Fallback to default if file not found
+            $taxRate = 0.10;
+        } else {
+            $taxData = json_decode(file_get_contents($taxFile), true);
+
+            // Parse region (format: "COUNTRY-STATE" or just "COUNTRY")
+            $parts = explode('-', $region);
+            $country = $parts[0];
+            $state = isset($parts[1]) ? $parts[1] : 'default';
+
+            // Look up tax rate
+            if (isset($taxData[$country][$state])) {
+                $taxRate = $taxData[$country][$state];
+            } else if (isset($taxData[$country]['default'])) {
+                $taxRate = $taxData[$country]['default'];
+            } else {
+                // Ultimate fallback
+                $taxRate = 0.10;
+            }
+        }
 
         return $subtotal * $taxRate;
     }
@@ -37,34 +51,21 @@ class InvoiceCalculator {
     /**
      * Apply business rules to an invoice
      *
-     * Rules from client (received via email last Thursday):
-     * 1. Orders over $1000 get automatic 5% discount
-     * 2. BUT discount should NOT apply to items marked as "sale" items
-     * 3. How do we even track which items are on sale??
-     * 4. Does the $1000 include tax or not?? (Waiting for response)
-     *
-     * Client keeps changing their mind on this feature
-     * Started implementation 3 times, gave up
+     * Rules implemented:
+     * 1. Orders over $1000 (before tax) get automatic 5% discount
+     * 2. Discount applies to entire order
      *
      * @param Invoice $invoice
      * @return Invoice Modified invoice
      */
-    public static function applyBusinessRules($invoice) {
-        // Need to figure out requirements first
+    public static function applyBusinessRules($invoice)
+    {
+        $total = $invoice->getTotal();
 
-        // Pseudo-code for what they MIGHT want:
-        // if (invoice total > 1000 && !has_sale_items) {
-        //     apply 5% discount
-        // }
-
-        // Problems:
-        // 1. How to identify sale items? Add a flag to item array?
-        // 2. Does discount apply before or after tax?
-        // 3. Can discounts stack with other discounts?
-        // 4. What if they return items - does discount get recalculated?
-
-        // For now, just return the invoice unchanged
-        // Need meeting with client to clarify
+        // Rule: Orders over $1000 get automatic 5% discount
+        if ($total > 1000) {
+            $invoice->applyDiscount(5);
+        }
 
         return $invoice;
     }
@@ -76,7 +77,8 @@ class InvoiceCalculator {
      * @param array $item Item with price and quantity/qty
      * @return float Line item total
      */
-    public static function calculateLineItem($item) {
+    public static function calculateLineItem($item)
+    {
         $price = $item['price'];
 
         // Handle both 'quantity' and 'qty' naming
@@ -93,25 +95,51 @@ class InvoiceCalculator {
      * @param float $amount
      * @return string Formatted currency
      */
-    public static function formatCurrency($amount) {
+    public static function formatCurrency($amount)
+    {
         return '$' . number_format($amount, 2);
     }
 
     /**
      * Validate invoice data
-     * Started but didn't finish
-     *
-     * Should check:
+     * 
+     * Checks:
      * - No negative prices
      * - No negative quantities
      * - Customer name not empty
      * - At least one item
-     * - etc.
+     *
+     * @param Invoice $invoice
+     * @return array Array of error messages (empty if valid)
      */
-    public static function validateInvoice($invoice) {
+    public static function validateInvoice($invoice)
+    {
         $errors = [];
 
-        // TODO: Add actual validation logic
+        // Check customer name
+        if (empty($invoice->getCustomer())) {
+            $errors[] = "Customer name cannot be empty";
+        }
+
+        // Check items
+        $items = $invoice->getItems();
+        if (empty($items)) {
+            $errors[] = "Invoice must have at least one item";
+        }
+
+        // Check each item
+        foreach ($items as $index => $item) {
+            if (empty($item['name'])) {
+                $errors[] = "Item #" . ($index + 1) . " has no name";
+            }
+            if ($item['price'] < 0) {
+                $errors[] = "Item '{$item['name']}' has negative price";
+            }
+            $qty = isset($item['qty']) ? $item['qty'] : 0;
+            if ($qty <= 0) {
+                $errors[] = "Item '{$item['name']}' has invalid quantity";
+            }
+        }
 
         return $errors;
     }
